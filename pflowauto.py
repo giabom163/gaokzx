@@ -140,7 +140,14 @@ def _ask_paper_type(cands, ask=None, label="试卷类型"):
 
 
 # 无交互全自动后端（CLI --auto / 看板调度 / 菜单[1] 公共入口）
-STAGE_SEQ = ("download", "watermark", "rename", "ocr", "qc", "ads", "pack")
+# 流水线阶段顺序：默认旧版兼容。若设置 GAOKZX_CLEAN_FIRST=1（推荐新架构），
+# 则将 ads（去底边广告与删纯广告页）前移至 watermark 后、ocr 前，实现"先净图、后注字"，
+# 避免在纯广告页上浪费 OCR 算力，且杜绝注字后又做 redact 导致文字层损坏。
+_CLEAN_FIRST = os.environ.get("GAOKZX_CLEAN_FIRST", "0") in ("1", "true", "True")
+if _CLEAN_FIRST:
+    STAGE_SEQ = ("download", "watermark", "ads", "rename", "ocr", "qc", "pack")
+else:
+    STAGE_SEQ = ("download", "watermark", "rename", "ocr", "qc", "ads", "pack")
 _STAGE_ALIAS = {
     "download": "download", "discover": "download", "1": "download",
     "下载": "download", "抓取": "download", "采集": "download",
@@ -268,7 +275,8 @@ def _run_auto_stage(con, stage, bid, force, wm_workers=6, ocr_workers=None, ocr_
                  threads_per_worker=_t, force=force, batch_id=bid)
     elif stage == "qc": step_qc(con, False, None, batch_id=bid)
     elif stage == "ads":
-        rc = step_ads(dry=False, out=None, batch_id=bid, force=force)
+        _out = STAGE_CLEANED if _CLEAN_FIRST else None
+        rc = step_ads(dry=False, out=_out, batch_id=bid, force=force)
         if rc == 3:
             print(">>> [auto] 清广告报告校验失败（缺失/过旧/批次不匹配），中止。")
             return 3
