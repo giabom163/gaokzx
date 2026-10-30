@@ -746,12 +746,19 @@ def _insert_page_text(page, texts, scores, polys, dpi):
                     raise ValueError("base_len degenerate")
                 raw_sx = width / base_len
 
-                # 填空题下划线 / 大空格畸变保护
+                # 进阶自适应拉伸与抗畸变保护：
+                # 1. 填空题下划线 / 大空格畸变保护
                 has_large_gap = ("____" in txt) or ("    " in txt)
                 if has_large_gap:
                     sx = max(0.7, min(1.3, raw_sx))
+                elif len(txt.strip()) <= 2:
+                    # 2. 单字/超短符号碎片（如 '=', '①', 'A.', 'x²'）防畸变，避免 OCR 小边框抖动压成细线
+                    sx = max(0.8, min(1.25, raw_sx))
+                elif sum(1 for c in txt if c in "=+-*/<>≤≥≈≠±×÷√∫∑πθαβλΩΔ°²³₀₁₂") / max(1, len(txt)) > 0.2:
+                    # 3. 理科公式密集行：防止公式字符过度挤压或重叠
+                    sx = max(0.65, min(1.5, raw_sx))
                 else:
-                    sx = max(0.1, min(3.5, raw_sx))
+                    sx = max(0.2, min(2.5, raw_sx))
 
                 # 自适应中西文基线下沉比例
                 ascii_count = sum(1 for c in txt if ord(c) < 128)
