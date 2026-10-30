@@ -55,7 +55,12 @@ def main():
         except OSError:
             pass
 
-    sys.path.insert(0, r"D:\work\xer-doc-paddle-ocr")
+    _here = os.path.dirname(os.path.abspath(__file__))
+    if _here not in sys.path:
+        sys.path.insert(0, _here)
+    _fallback_xer = r"D:\work\xer-doc-paddle-ocr"
+    if os.path.isdir(_fallback_xer) and _fallback_xer not in sys.path:
+        sys.path.append(_fallback_xer)
     import pymupdf as fitz
 
     def has_text(p):
